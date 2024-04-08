@@ -22,6 +22,7 @@ The program accepts two inputs from the user, described as follows:
 
 r – the number of Regular Citizens
 s – the number of Super Citizens
+
 Output
 Given that thread execution may vary per execution, it is possible that any sample output would not align with your output. Hence, utilize the following rules as a guide for producing output:
 
@@ -30,5 +31,6 @@ When a Super Citizen is signing up, display Super Citizen <sc_id> is signing up
 When any Citizen joins a team, display <citizen_type> <citizen_id> has joined team <team_id>
 When a team is properly composed and ready to launch, display team <team_id> is ready and now launching to battle (sc: <super_count> | rc: <regular_count>)
 Once all teams have been launched and/or there are not enough citizens to form teams, the program should display the total teams sent and the number of Regular and Super Citizens that were not sent off
+
 Required Program Interaction
 There should be minimal program interaction. The program will ask the user to input the values for r and s.
