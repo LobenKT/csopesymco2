@@ -39,10 +39,10 @@ def regular_citizen(id):
 
 def try_to_form_team():
     global team_count, waiting_super_citizens, waiting_regular_citizens, citizens_started
+    team_formed = False  # Flag to indicate if at least one team was formed in this call
     with condition:
-        # Check if we can form a team
         while waiting_super_citizens >= 1 and (waiting_super_citizens + waiting_regular_citizens) >= 4:
-            # Calculate the number of super and regular citizens to include in the team
+            team_formed = True
             num_super_in_team = min(2, waiting_super_citizens)  # At most 2 Super Citizens
             num_regular_in_team = 4 - num_super_in_team  # The rest are Regular Citizens
             
@@ -55,27 +55,30 @@ def try_to_form_team():
             # Release the semaphores for the citizens that have joined a team
             for _ in range(num_super_in_team):
                 super_citizen_semaphore.release()
-                print(f"Super Citizen {super_signed.pop()} has joined team {team_count}")
+
+                print(f"Super Citizen {super_signed.pop(0)} has joined the team {team_count}")
             for _ in range(num_regular_in_team):
                 regular_citizen_semaphore.release()
-                print(f"Regular Citizen {regular_signed.pop()} has joined team {team_count}")
+                print(f"Regular Citizen {regular_signed.pop(0)} has joined the team {team_count}")
+
 
             print(f"team {team_count} is ready and now launching to battle (sc: {num_super_in_team} | rc: {num_regular_in_team})")
 
-            # Notify all waiting threads to re-evaluate their conditions
-            condition.notify_all()
+        # Notify all waiting threads to re-evaluate their conditions after attempting to form a team
+        condition.notify_all()
 
-        # Check if it's impossible to form a new team due to a lack of citizens
-        if citizens_started == total_citizens and (waiting_super_citizens + waiting_regular_citizens < 4 or waiting_regular_citizens == 0):
-            # Not enough citizens to form a new team or not enough Regular Citizens to form a valid team
-            print(f"Simulation ended: Not enough citizens to form a new team. Remaining Super Citizens: {waiting_super_citizens}, Remaining Regular Citizens: {waiting_regular_citizens}")
-            condition.notify_all()  # Ensure all waiting threads are released
+        # End-of-Simulation Check: After all citizens have signed up
+        if not team_formed and citizens_started == total_citizens:
+            if waiting_super_citizens + waiting_regular_citizens < 4 or waiting_regular_citizens == 0:
+                print(f"Simulation ended: Not enough citizens to form a new team. Remaining Super Citizens: {waiting_super_citizens}, Remaining Regular Citizens: {waiting_regular_citizens}")
+                condition.notify_all()  # Prevent threads from waiting indefinitely
 
-        # Additional check to prevent deadlock when there are only Super Citizens left but not enough Regular Citizens to form a team
-        elif waiting_regular_citizens == 0 and waiting_super_citizens > 0 and citizens_started == total_citizens:
-            # If there are no Regular Citizens left, we need to release any waiting Super Citizens
+        # Additional check for early simulation end: If there are only Super Citizens left but not enough Regular Citizens to form a team
+        elif waiting_regular_citizens == 0 and waiting_super_citizens > 0:
             print(f"Simulation ended early: Not enough Regular Citizens to form a new team. Remaining Super Citizens: {waiting_super_citizens}")
             condition.notify_all()  # Release any waiting Super Citizens
+
+
 
 
 def start_simulation(r, s):
@@ -87,4 +90,4 @@ def start_simulation(r, s):
         threading.Thread(target=super_citizen, args=(i,)).start()
 
 # Example simulation
-start_simulation(r=10, s=5)
+start_simulation(r=1, s=10)
