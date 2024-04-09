@@ -11,6 +11,8 @@ waiting_super_citizens = 0
 waiting_regular_citizens = 0
 total_citizens = 0  # New: Track the total number of citizens who started the signup process
 citizens_started = 0  # New: Track the number of citizens who have started the signup process
+super_signed = []
+regular_signed = []
 
 def super_citizen(id):
     global waiting_super_citizens, citizens_started
@@ -19,6 +21,7 @@ def super_citizen(id):
         waiting_super_citizens += 1
         citizens_started += 1
         print(f"Super Citizen {id} is signing up")
+        super_signed.append(id)
     try_to_form_team()
 
 def regular_citizen(id):
@@ -28,6 +31,7 @@ def regular_citizen(id):
         waiting_regular_citizens += 1
         citizens_started += 1
         print(f"Regular Citizen {id} is signing up")
+        regular_signed.append(id)
     try_to_form_team()
 
 def try_to_form_team():
@@ -44,13 +48,16 @@ def try_to_form_team():
             waiting_regular_citizens -= num_regular_in_team
             
             team_count += 1
-            print(f"team {team_count} is ready and now launching to battle (sc: {num_super_in_team} | rc: {num_regular_in_team})")
             
             # Release the semaphores for the citizens that have joined a team
             for _ in range(num_super_in_team):
                 super_citizen_semaphore.release()
+                print(f"Super Citizen {super_signed.pop()} has joined the team {team_count}")
             for _ in range(num_regular_in_team):
                 regular_citizen_semaphore.release()
+                print(f"Regular Citizen {regular_signed.pop()} has joined the team {team_count}")
+
+            print(f"team {team_count} is ready and now launching to battle (sc: {num_super_in_team} | rc: {num_regular_in_team})")
 
             # Notify all waiting threads to re-evaluate their conditions
             condition.notify_all()
