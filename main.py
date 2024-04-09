@@ -55,10 +55,10 @@ def try_to_form_team():
             # Release the semaphores for the citizens that have joined a team
             for _ in range(num_super_in_team):
                 super_citizen_semaphore.release()
-                print(f"Super Citizen {super_signed.pop()} has joined the team {team_count}")
+                print(f"Super Citizen {super_signed.pop()} has joined team {team_count}")
             for _ in range(num_regular_in_team):
                 regular_citizen_semaphore.release()
-                print(f"Regular Citizen {regular_signed.pop()} has joined the team {team_count}")
+                print(f"Regular Citizen {regular_signed.pop()} has joined team {team_count}")
 
             print(f"team {team_count} is ready and now launching to battle (sc: {num_super_in_team} | rc: {num_regular_in_team})")
 
