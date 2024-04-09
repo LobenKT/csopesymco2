@@ -1,5 +1,6 @@
 import threading
 from threading import Semaphore, Condition
+import random
 
 # Initialization
 super_citizen_semaphore = Semaphore(2)  # Up to 2 Super Citizens in a team
@@ -22,6 +23,7 @@ def super_citizen(id):
         citizens_started += 1
         print(f"Super Citizen {id} is signing up")
         super_signed.append(id)
+        random.shuffle(super_signed)
     try_to_form_team()
 
 def regular_citizen(id):
@@ -32,6 +34,7 @@ def regular_citizen(id):
         citizens_started += 1
         print(f"Regular Citizen {id} is signing up")
         regular_signed.append(id)
+        random.shuffle(regular_signed)
     try_to_form_team()
 
 def try_to_form_team():
