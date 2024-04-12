@@ -1,93 +1,186 @@
-import threading
-from threading import Semaphore, Condition
-import random
+# import threading modules
+from threading import Semaphore, Condition, Thread, Lock
 
-# Initialization
-super_citizen_semaphore = Semaphore(2)  # Up to 2 Super Citizens in a team
-regular_citizen_semaphore = Semaphore(3)  # Up to 3 Regular Citizens in a team
-team_lock = threading.Lock()
-condition = Condition(team_lock)
-team_count = 0
-waiting_super_citizens = 0
-waiting_regular_citizens = 0
-total_citizens = 0  # New: Track the total number of citizens who started the signup process
-citizens_started = 0  # New: Track the number of citizens who have started the signup process
-super_signed = []
-regular_signed = []
+class Citizen:
 
-def super_citizen(id):
-    global waiting_super_citizens, citizens_started
-    super_citizen_semaphore.acquire()
-    with team_lock:
-        waiting_super_citizens += 1
-        citizens_started += 1
-        print(f"Super Citizen {id} is signing up")
-        super_signed.append(id)
-        random.shuffle(super_signed)
-    try_to_form_team()
+    SUPER = "Super Citizen"
+    REGULAR = "Regular Citizen"
 
-def regular_citizen(id):
-    global waiting_regular_citizens, citizens_started
-    regular_citizen_semaphore.acquire()
-    with team_lock:
-        waiting_regular_citizens += 1
-        citizens_started += 1
-        print(f"Regular Citizen {id} is signing up")
-        regular_signed.append(id)
-        random.shuffle(regular_signed)
-    try_to_form_team()
+    def __init__(self):
+        self.__citizens = []
+        self.teams = []
+        self.super = Semaphore(2)
+        self.regular = Semaphore(3)
+        self.team_lock = Lock()
+        self.condition = Condition(self.team_lock)
+        self.total_super = 0
+        self.total_regular = 0
+        self.__aborted = 0
+        self.__done = 0
+        self.__super_count = 0
+        self.__regular_count = 0
+        self.__super_signed = 0
+        self.__regular_signed = 0
 
-def try_to_form_team():
-    global team_count, waiting_super_citizens, waiting_regular_citizens, citizens_started
-    team_formed = False  # Flag to indicate if at least one team was formed in this call
-    with condition:
-        while waiting_super_citizens >= 1 and (waiting_super_citizens + waiting_regular_citizens) >= 4:
-            team_formed = True
-            num_super_in_team = min(2, waiting_super_citizens)  # At most 2 Super Citizens
-            num_regular_in_team = 4 - num_super_in_team  # The rest are Regular Citizens
-            
-            # Decrement the counters for waiting citizens
-            waiting_super_citizens -= num_super_in_team
-            waiting_regular_citizens -= num_regular_in_team
-            
-            team_count += 1
-            
-            # Release the semaphores for the citizens that have joined a team
-            for _ in range(num_super_in_team):
-                super_citizen_semaphore.release()
+    def generate_super(self, id):
+        # acquire the semaphore for super citizens
+        self.super.acquire()
+        # acquire the lock for team operations
+        # lock is used to prevent multiple threads from accessing the team operations simultaneously
+        with self.team_lock:
+            # check if team formation is aborted
+            # done to prevent super citizens from signing up and waiting indefinitely
+            # prevents potential deadlocks
+            if self.__aborted == 1:
+                # release the semaphore and return
+                # release the semaphore to allow other threads to acquire it then return
+                self.super.release()
+                return
+            # print the sign up message for the super citizen
+            print(f"Super Citizen {id} is signing up")
+            # add the super citizen to the list of citizens
+            # citizen formatting: (type, id)
+            # type: super or regular
+            # id: citizen id
+            self.__citizens.append((self.SUPER, id))
+            # increment the count of super citizens signed up
+            self.__super_count += 1
+        # try to form a team
+        self.try_to_form_team()
 
-                print(f"Super Citizen {super_signed.pop(0)} has joined the team {team_count}")
-            for _ in range(num_regular_in_team):
-                regular_citizen_semaphore.release()
-                print(f"Regular Citizen {regular_signed.pop(0)} has joined the team {team_count}")
+    def generate_regular(self, id):
+        # acquire the semaphore for reg citizens
+        self.regular.acquire()
+        # acquire the lock for team operations
+        # lock is used to prevent multiple threads from accessing the team operations simultaneously
+        with self.team_lock:
+            # check if team formation is aborted
+            # done to prevent reg citizens from signing up and waiting indefinitely
+            # prevents potential deadlocks
+            if self.__aborted == 1:
+                # release the semaphore to allow other threads to acquire it then return
+                self.regular.release() 
+                return
+            # print the sign up message for reg citizen
+            print(f"Regular Citizen {id} is signing up")
+            # add reg citizen to the list of citizens
+            # citizen formatting: (type, id)
+            # type: super or reg
+            # id: citizen id
+            self.__citizens.append((self.REGULAR, id))
+            # increment the count of reg citizens signed up
+            self.__regular_count += 1
+        # try to form a team
+        self.try_to_form_team()
 
+    def super_count(self):
+        # returns the count of number of super citizens in the first four elements of the list whose first element is equal to the constant value 'super'
+        return len([c for c in self.__citizens[:4] if c[0] == self.SUPER])
+    
+    def regular_count(self):
+        # returns the count of number of reg citizens in the first four elements of the list whose first element is equal to the constant value 'regular'
+        return len([c for c in self.__citizens[:4] if c[0] == self.REGULAR])
 
-            print(f"team {team_count} is ready and now launching to battle (sc: {num_super_in_team} | rc: {num_regular_in_team})")
+    def try_to_form_team(self):
+        # acquire the lock for team operations
+        # condition variable is used to wait for the team formation
+        with self.condition:
+            # check if there are enough citizens to form a team, requiring at least 4 citizens
+            if len(self.__citizens) >= 4:
+                # add the first 4 citizens to a team
+                self.teams.append(self.__citizens[:4])
 
-        # Notify all waiting threads to re-evaluate their conditions after attempting to form a team
-        condition.notify_all()
+                # get the count of super citizens and reg citizens in the team
+                num_super = self.super_count()
+                num_regular = self.regular_count()
+                
+                # print team formation message
+                for _ in range(4):
+                    # remove the citizen from the list of citizens
+                    citizen = self.__citizens.pop(0)
 
-        # End-of-Simulation Check: After all citizens have signed up
-        if not team_formed and citizens_started == total_citizens:
-            if waiting_super_citizens + waiting_regular_citizens < 4 or waiting_regular_citizens == 0:
-                print(f"Simulation ended: Not enough citizens to form a new team. Remaining Super Citizens: {waiting_super_citizens}, Remaining Regular Citizens: {waiting_regular_citizens}")
-                condition.notify_all()  # Prevent threads from waiting indefinitely
+                    # print the citizen joining the team message
+                    print(f"{citizen[0]} {citizen[1]} has joined a team {len(self.teams)}")
 
-        # Additional check for early simulation end: If there are only Super Citizens left but not enough Regular Citizens to form a team
-        elif waiting_regular_citizens == 0 and waiting_super_citizens > 0:
-            print(f"Simulation ended early: Not enough Regular Citizens to form a new team. Remaining Super Citizens: {waiting_super_citizens}")
-            condition.notify_all()  # Release any waiting Super Citizens
+                    # release the semaphore for the citizen based on the type
+                    if citizen[0] == self.SUPER:
+                        # increment the count of super citizens sent off to a team
+                        self.__super_signed += 1
+                        # release the semaphore for super citizens, allowing other super citizens to sign up
+                        self.super.release()
+                    elif citizen[0] == self.REGULAR:
+                        # increment the count of reg citizens sent off to a team
+                        self.__regular_signed += 1
+                        # release the semaphore for reg citizens, allowing other reg citizens to sign up
+                        self.regular.release()
 
+                # print the team ready message
+                print(f"team {len(self.teams)} is ready and now launching to battle (sc: {num_super} | rc: {num_regular})")
+                # notify all threads waiting on the condition variable
+                self.condition.notify_all()
 
+                # check if all citizens have joined a team
+                if (self.total_super == self.__super_count and 
+                    self.total_regular == self.__regular_count):
+                    # print the message indicating all citizens have joined a team
+                    print("\nAll citizens have joined a team",
+                          f"Total teams sent: {len(self.teams)}",
+                          sep="\n")
+                    # set the team formation as done
+                    self.__aborted = -1
+                    self.__done = 1
 
+            # check if team formation is still not completed
+            if self.__aborted != -1:
+                # check if the team formation is completed
+                self.__done = self.total_super == self.__super_count and self.total_regular == self.__regular_count
 
-def start_simulation(r, s):
-    global total_citizens
-    total_citizens = r + s  # Set the total number of citizens based on input
-    for i in range(1, r + 1):
-        threading.Thread(target=regular_citizen, args=(i,)).start()
-    for i in range(1, s + 1):
-        threading.Thread(target=super_citizen, args=(i,)).start()
+                # important: The following condition prevents deadlocks
 
-# Example simulation
-start_simulation(r=1, s=10)
+                # the following condition prevents deadlocks
+                # check if there are less than 4 citizens signed up and team formation is completed
+                if (
+                    len(self.__citizens) < 4 and self.__done == 1 or 
+                    # check if there are no citizens left to form a team and either all super citizens or all reg citizens are sent off
+                    len(self.__citizens) == 0 and (self.total_super == self.__super_count or self.total_regular == self.__regular_count) or
+                    # check if there are not enough super citizens to form a team or not enough reg citizens to form a team
+                    # checks the state of 2 super citizens 
+                    (self.super_count() == 2 and self.total_regular == self.__regular_count or
+                    # checks the state of 3 reg citizens
+                    self.regular_count() == 3 and self.total_super == self.__super_count)):
+
+                    # important notify all threads waiting on the condition variable
+                    self.__aborted = 1
+                    self.super.release()
+                    self.regular.release()
+                    # print the message indicating not enough citizens to form a team
+                    print(
+                        "\nNot enough citizens to form a team", 
+                        f"Total teams sent: {len(self.teams)}",
+                        f"Remaining super citizens not sent off: {self.total_super - self.__super_signed}",
+                        f"Remaining regular citizens not sent off: {self.total_regular - self.__regular_signed}",
+                        sep="\n")
+
+    """
+    starts the program with the given number of reg and super citizens.
+    
+    args:
+        r (int): # of reg citizens
+        s (int): # of super citizens.
+    """
+
+    def start(self, r, s):
+        self.total_super = s    # set the total num of super citizens
+        self.total_regular = r  # set the total num of reg citizens
+        
+        # start the threads for generating reg citizens
+        for i in range(r):
+            Thread(target=self.generate_regular, args=(i+1,)).start()
+        # start the threads for generating super citizens
+        for i in range(s):
+            Thread(target=self.generate_super, args=(i+1,)).start()
+
+# main func
+if __name__ == "__main__":
+    c = Citizen()   # create a citizen object
+    c.start(10, 5)  # start the program with 10 reg citizens and 5 super citizens
