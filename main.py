@@ -100,7 +100,7 @@ class Citizen:
                     citizen = self.__citizens.pop(0)
 
                     # print the citizen joining the team message
-                    print(f"{citizen[0]} {citizen[1]} has joined a team {len(self.teams)}")
+                    print(f"{citizen[0]} {citizen[1]} has joined team {len(self.teams)}")
 
                     # release the semaphore for the citizen based on the type
                     if citizen[0] == self.SUPER:
@@ -169,7 +169,7 @@ class Citizen:
         s (int): # of super citizens.
     """
 
-    def start(self, r, s):
+    def start(self, r=0, s=0):
         self.total_super = s    # set the total num of super citizens
         self.total_regular = r  # set the total num of reg citizens
         
@@ -182,5 +182,13 @@ class Citizen:
 
 # main func
 if __name__ == "__main__":
-    c = Citizen()   # create a citizen object
-    c.start(10, 5)  # start the program with 10 reg citizens and 5 super citizens
+    try:
+        r, s = map(int, input("-  -  -  -  -  -  -  -  -  -  -  -  -\nEnter Regular Citizens (r) and Super Citizens (s)\nIn the format <r s>: ").split())
+
+        if r < 0  or s < 0:
+            raise ValueError("Citizens cannot be a negative number")
+
+        c = Citizen()   # create a citizen object
+        c.start(r, s)  # start the program with 10 reg citizens and 5 super citizens
+    except ValueError as e:
+        print("ERROR: ", e)
